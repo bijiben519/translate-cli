@@ -25,10 +25,11 @@ def _ensure_model(source: str, target: str):
     source = _to_argos(source)
     target = _to_argos(target)
 
-    installed = argostranslate.translate.get_installed_languages()
-    for pair in installed:
-        if pair.from_code == source and pair.to_code == target:
-            return  # already installed
+    # Check if already installed
+    for lang in argostranslate.translate.get_installed_languages():
+        for tr in lang.translations_from:
+            if tr.from_lang.code == source and tr.to_lang.code == target:
+                return  # already installed
 
     # Download the package
     argostranslate.package.update_package_index()
@@ -54,11 +55,12 @@ def translate_text(text: str, source: str = "auto", target: str = "en") -> str:
             "Argos Translate is not installed. Run: pip install argostranslate"
         )
 
-    # Auto-detect source language (langdetect works offline)
+    # Auto-detect source language using CJK character detection
     if source == "auto":
-        from langdetect import detect
-        detected = detect(text)
-        source = detected
+        if _has_cjk(text):
+            source = "zh"
+        else:
+            source = "en"
 
     source = _to_argos(source)
     target = _to_argos(target)
@@ -89,15 +91,30 @@ def detect_language(text: str) -> str:
         raise TranslationError(f"Failed to detect language: {e}")
 
 
+def _has_cjk(text: str) -> bool:
+    """Return True if text contains Chinese/Japanese/Korean characters."""
+    for ch in text:
+        cp = ord(ch)
+        if (0x4E00 <= cp <= 0x9FFF
+                or 0x3400 <= cp <= 0x4DBF
+                or 0xF900 <= cp <= 0xFAFF
+                or 0x3040 <= cp <= 0x309F
+                or 0x30A0 <= cp <= 0x30FF
+                or 0xAC00 <= cp <= 0xD7AF):
+            return True
+    return False
+
+
 def list_languages() -> dict[str, str]:
     """List installed language pairs (not all possible pairs)."""
     try:
         import argostranslate.translate
         installed = argostranslate.translate.get_installed_languages()
         result = {}
-        for pair in installed:
-            key = f"{pair.from_code} -> {pair.to_code}"
-            result[key] = f"{pair.from_name} → {pair.to_name}"
+        for lang in installed:
+            for tr in lang.translations_from:
+                key = f"{tr.from_lang.code} -> {tr.to_lang.code}"
+                result[key] = f"{tr.from_lang.name} → {tr.to_lang.name}"
         return result
     except ImportError:
         return {}
