@@ -13,6 +13,15 @@ from translate_cli.translator import (
 )
 
 
+def _get_backend(offline: bool):
+    """Return the appropriate backend module based on --offline flag."""
+    if offline:
+        from translate_cli import argos_translator
+        return argos_translator
+    from translate_cli import translator
+    return translator
+
+
 @click.command()
 @click.argument("text", required=False)
 @click.option(
@@ -40,7 +49,12 @@ from translate_cli.translator import (
     is_flag=True,
     help="Copy the result to clipboard.",
 )
-def main(text, source, target, detect_mode, list_mode, copy):
+@click.option(
+    "-o", "--offline",
+    is_flag=True,
+    help="Use offline translation (Argos Translate). Downloads models on first use.",
+)
+def main(text, source, target, detect_mode, list_mode, copy, offline):
     """Translate text from the command line.
 
     TEXT is read from the first argument or from stdin (pipe-friendly).
@@ -52,11 +66,16 @@ def main(text, source, target, detect_mode, list_mode, copy):
       translate --detect "bonjour"
       translate --languages
     """
+    bk = _get_backend(offline)
+
     # --languages flag
     if list_mode:
-        langs = list_languages()
+        langs = bk.list_languages()
+        if not langs:
+            click.echo("No language models installed yet. Translate something first.")
+            return
         for code, name in langs.items():
-            click.echo(f"{code:<8} {name}")
+            click.echo(f"{code:<20} {name}")
         return
 
     # Gather input text: argument first, then stdin
@@ -77,7 +96,7 @@ def main(text, source, target, detect_mode, list_mode, copy):
     # --detect flag
     if detect_mode:
         try:
-            result = detect_language(input_text)
+            result = bk.detect_language(input_text)
             click.echo(result)
         except TranslationError as e:
             raise click.ClickException(str(e))
@@ -92,7 +111,7 @@ def main(text, source, target, detect_mode, list_mode, copy):
                 target = "en"
             else:
                 target = "zh-CN"
-        result = translate_text(input_text, source=source, target=target)
+        result = bk.translate_text(input_text, source=source, target=target)
         click.echo(result)
         if copy:
             _copy_to_clipboard(result)
