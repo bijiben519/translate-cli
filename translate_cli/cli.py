@@ -21,8 +21,8 @@ from translate_cli.translator import (
 )
 @click.option(
     "-t", "--target",
-    default="en",
-    help="Target language code (default: en).",
+    default=None,
+    help="Target language code (default: smart en/zh-CN based on detected language).",
 )
 @click.option(
     "--detect", "detect_mode",
@@ -79,7 +79,26 @@ def main(text, source, target, detect_mode, list_mode):
 
     # Translate
     try:
+        if target is None:
+            if _has_cjk(input_text):
+                target = "en"
+            else:
+                target = "zh-CN"
         result = translate_text(input_text, source=source, target=target)
         click.echo(result)
     except TranslationError as e:
         raise click.ClickException(str(e))
+
+
+def _has_cjk(text: str) -> bool:
+    """Return True if text contains Chinese/Japanese/Korean characters."""
+    for ch in text:
+        cp = ord(ch)
+        if (0x4E00 <= cp <= 0x9FFF     # CJK Unified Ideographs
+                or 0x3400 <= cp <= 0x4DBF  # CJK Extension A
+                or 0xF900 <= cp <= 0xFAFF  # CJK Compatibility Ideographs
+                or 0x3040 <= cp <= 0x309F  # Hiragana
+                or 0x30A0 <= cp <= 0x30FF  # Katakana
+                or 0xAC00 <= cp <= 0xD7AF):  # Hangul
+            return True
+    return False
