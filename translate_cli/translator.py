@@ -1,5 +1,7 @@
 """Translation logic wrapping deep-translator (Google Translate)."""
 
+import requests
+
 from deep_translator import GoogleTranslator
 from deep_translator.exceptions import (
     LanguageNotSupportedException,
@@ -92,6 +94,10 @@ def translate_text(
         ) from e
     except TranslationNotFound as e:
         raise TranslationError(f"Could not translate the given text: {e}") from e
+    except requests.exceptions.ConnectionError as e:
+        raise TranslationError(
+            f"Network error — check your internet connection. ({e})"
+        ) from e
 
 
 def list_languages() -> dict[str, str]:
