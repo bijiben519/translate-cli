@@ -1,5 +1,6 @@
 """Click CLI for the translation tool."""
 
+import subprocess
 import sys
 
 import click
@@ -34,7 +35,12 @@ from translate_cli.translator import (
     is_flag=True,
     help="List all supported language codes.",
 )
-def main(text, source, target, detect_mode, list_mode):
+@click.option(
+    "-c", "--copy",
+    is_flag=True,
+    help="Copy the result to clipboard.",
+)
+def main(text, source, target, detect_mode, list_mode, copy):
     """Translate text from the command line.
 
     TEXT is read from the first argument or from stdin (pipe-friendly).
@@ -75,6 +81,8 @@ def main(text, source, target, detect_mode, list_mode):
             click.echo(result)
         except TranslationError as e:
             raise click.ClickException(str(e))
+        if copy:
+            _copy_to_clipboard(result)
         return
 
     # Translate
@@ -86,8 +94,18 @@ def main(text, source, target, detect_mode, list_mode):
                 target = "zh-CN"
         result = translate_text(input_text, source=source, target=target)
         click.echo(result)
+        if copy:
+            _copy_to_clipboard(result)
     except TranslationError as e:
         raise click.ClickException(str(e))
+
+
+def _copy_to_clipboard(text: str) -> None:
+    """Copy text to the system clipboard (macOS)."""
+    try:
+        subprocess.run(["pbcopy"], input=text.encode(), check=True)
+    except Exception as e:
+        raise click.ClickException(f"Failed to copy to clipboard: {e}")
 
 
 def _has_cjk(text: str) -> bool:
