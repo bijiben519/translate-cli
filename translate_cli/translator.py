@@ -1,5 +1,6 @@
 """Translation logic wrapping deep-translator (Google Translate)."""
 
+import os
 import requests
 
 from deep_translator import GoogleTranslator
@@ -64,6 +65,7 @@ def translate_text(
     text: str,
     source: str = "auto",
     target: str = "en",
+    proxy: str | None = None,
 ) -> str:
     """Translate text from source language to target language.
 
@@ -71,14 +73,21 @@ def translate_text(
         text: The text to translate.
         source: Source language code (default 'auto' for auto-detection).
         target: Target language code (default 'en').
+        proxy: Optional proxy URL (e.g. 'http://127.0.0.1:7890'). Also
+            checks HTTPS_PROXY / ALL_PROXY env vars when not given.
 
     Returns the translated text.
     """
     # Resolve convenience aliases
     source = LANGUAGE_ALIASES.get(source, source)
     target = LANGUAGE_ALIASES.get(target, target)
+
+    # Resolve proxy: explicit arg takes priority, then env vars
+    proxy_url = proxy or os.environ.get("HTTPS_PROXY") or os.environ.get("ALL_PROXY")
+    proxies = {"https": proxy_url} if proxy_url else None
+
     try:
-        translator = GoogleTranslator(source=source, target=target)
+        translator = GoogleTranslator(source=source, target=target, proxies=proxies)
         result = translator.translate(text)
         return result
     except LanguageNotSupportedException as e:

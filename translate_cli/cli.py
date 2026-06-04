@@ -54,7 +54,13 @@ def _get_backend(offline: bool):
     is_flag=True,
     help="Use offline translation (Argos Translate). Downloads models on first use.",
 )
-def main(text, source, target, detect_mode, list_mode, copy, offline):
+@click.option(
+    "-p", "--proxy",
+    default=None,
+    help="Proxy URL for online translation (e.g. http://127.0.0.1:7890). "
+         "Ignored with --offline.",
+)
+def main(text, source, target, detect_mode, list_mode, copy, offline, proxy):
     """Translate text from the command line.
 
     TEXT is read from the first argument or from stdin (pipe-friendly).
@@ -111,7 +117,10 @@ def main(text, source, target, detect_mode, list_mode, copy, offline):
                 target = "en"
             else:
                 target = "zh-CN"
-        result = bk.translate_text(input_text, source=source, target=target)
+        if offline:
+            result = bk.translate_text(input_text, source=source, target=target)
+        else:
+            result = bk.translate_text(input_text, source=source, target=target, proxy=proxy)
         click.echo(result)
         if copy:
             _copy_to_clipboard(result)
